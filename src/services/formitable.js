@@ -47,7 +47,6 @@ const MOCK_BOOKINGS = [
 
 export const fetchBookings = async () => {
     // If no keys are present, return empty array
-    console.log('Formitable Service: Using BASE_URL:', BASE_URL);
     if (!API_KEY || !RESTAURANT_UID) {
         console.warn('Formitable: Missing API keys.');
         return { data: [], source: 'none', error: 'Missing API Keys' };
