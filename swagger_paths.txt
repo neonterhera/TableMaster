@@ -1,0 +1,17 @@
+/api/v{version}/{restaurantUid}/booking/{uid}
+/api/v{version}/{restaurantUid}/booking/{uid}/message
+/api/v{version}/{restaurantUid}/booking/{uid}/messagetouser
+/api/v{version}/{restaurantUid}/booking
+/api/v{version}/{restaurantUid}/booking/checkin/{uid}
+/api/v{version}/{restaurantUid}/booking/checkout/{uid}
+/api/v{version}/{restaurantUid}/booking/external/{source}/{externalReferenceId}
+/api/v{version}/{restaurantUid}/booking/external/{source}/group/{externalReferenceId}
+/api/v{version}/{restaurantUid}/booking/latest/{interval}/{filter}
+/api/v{version}/{restaurantUid}/booking/acceptoption/{bookingUid}
+/api/v{version}/{restaurantUid}/booking/rejectoption/{bookingUid}
+/api/v{version}/{restaurantUid}/booking/{from}/{days}
+/api/v{version}/{restaurantUid}/booking/event
+/api/v{version}/{restaurantUid}/message/booking/{bookingUid}
+/api/v{version}/{restaurantUid}/message/booking/{bookingUid}/only-public
+/api/v{version}/{restaurantUid}/message/booking/{bookingUid}/message-to-user
+/api/v{version}/{restaurantUid}/review/booking/{bookingUid}
