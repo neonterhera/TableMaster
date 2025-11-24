@@ -243,8 +243,6 @@ export default function CheckIn() {
                                         transition: 'transform 0.1s, background 0.1s',
                                         cursor: 'default'
                                     }}
-                                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                                        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-card)'}
                                     >
                                         <div className="flex items-center" style={{ gap: '1rem' }}>
                                             {/* Time */}
