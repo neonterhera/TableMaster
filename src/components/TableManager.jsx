@@ -3,19 +3,51 @@ import { useApp } from '../store';
 import TableNode from './TableNode';
 
 export default function TableManager() {
-    const { tables, addTable } = useApp();
+    const { tables, addTable, floors, addFloor, removeFloor, updateFloorName } = useApp();
     const [newName, setNewName] = useState('');
     const [newCapacity, setNewCapacity] = useState('');
     const [isEditMode, setIsEditMode] = useState(false);
+    const [activeFloorId, setActiveFloorId] = useState(floors[0]?.id || 'main');
+
+    // Ensure activeFloorId is valid (in case a floor was deleted)
+    React.useEffect(() => {
+        if (!floors.find(f => f.id === activeFloorId) && floors.length > 0) {
+            setActiveFloorId(floors[0].id);
+        }
+    }, [floors, activeFloorId]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
         if (newName && newCapacity) {
-            addTable(newName, newCapacity);
+            addTable(newName, newCapacity, activeFloorId);
             setNewName('');
             setNewCapacity('');
         }
     };
+
+    const handleAddFloor = () => {
+        const name = prompt("Enter new floor name:");
+        if (name) {
+            const id = addFloor(name);
+            setActiveFloorId(id);
+        }
+    };
+
+    const handleRemoveFloor = (e, id) => {
+        e.stopPropagation();
+        if (window.confirm("Are you sure? This will delete all tables on this floor.")) {
+            removeFloor(id);
+        }
+    };
+
+    const handleRenameFloor = (id, currentName) => {
+        const name = prompt("Rename floor:", currentName);
+        if (name) {
+            updateFloorName(id, name);
+        }
+    };
+
+    const activeTables = tables.filter(t => t.floorId === activeFloorId);
 
     return (
         <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '80vh' }}>
@@ -35,9 +67,69 @@ export default function TableManager() {
                         {isEditMode ? 'Done Editing' : 'Edit Layout'}
                     </button>
                     <div className="badge" style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}>
-                        {tables.length}
+                        {activeTables.length} Tables
                     </div>
                 </div>
+            </div>
+
+            {/* Floor Tabs */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '0.5rem' }} className="hide-scrollbar">
+                {floors.map(floor => (
+                    <div
+                        key={floor.id}
+                        onClick={() => setActiveFloorId(floor.id)}
+                        onDoubleClick={() => handleRenameFloor(floor.id, floor.name)}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            borderRadius: '12px',
+                            background: activeFloorId === floor.id ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                            color: activeFloorId === floor.id ? '#fff' : 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            border: activeFloorId === floor.id ? 'none' : '1px solid var(--bg-card-border)',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        <span>{floor.name}</span>
+                        {isEditMode && floors.length > 1 && (
+                            <button
+                                onClick={(e) => handleRemoveFloor(e, floor.id)}
+                                style={{
+                                    background: 'rgba(0,0,0,0.2)',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: '20px',
+                                    height: '20px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#fff',
+                                    fontSize: '0.8rem',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                ×
+                            </button>
+                        )}
+                    </div>
+                ))}
+                <button
+                    onClick={handleAddFloor}
+                    style={{
+                        padding: '0.5rem 1rem',
+                        borderRadius: '12px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px dashed var(--text-secondary)',
+                        color: 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
+                    }}
+                >
+                    + New Floor
+                </button>
             </div>
 
             {isEditMode && (
@@ -77,7 +169,7 @@ export default function TableManager() {
                     {isEditMode ? 'Drag tables to rearrange' : 'View Mode'}
                 </p>
 
-                {tables.map(table => (
+                {activeTables.map(table => (
                     <TableNode key={table.id} table={table} disabled={!isEditMode} />
                 ))}
             </div>
