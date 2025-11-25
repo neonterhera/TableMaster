@@ -1,44 +1,23 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { floorService, tableService } from './services/supabase';
 
 const AppContext = createContext();
 
 export function AppProvider({ children }) {
-    // Theme State
+    // Theme State (keep in localStorage - user preference)
     const [theme, setTheme] = useState(() => {
         return localStorage.getItem('theme') || 'light';
     });
 
+    // Loading and Error States
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
+
     // Floor State
-    const [floors, setFloors] = useState(() => {
-        const saved = localStorage.getItem('floors');
-        return saved ? JSON.parse(saved) : [
-            { id: 'main', name: 'Main Floor' }
-        ];
-    });
+    const [floors, setFloors] = useState([]);
 
     // Table State
-    const [tables, setTables] = useState(() => {
-        const saved = localStorage.getItem('tables');
-        let initialTables = [];
-        if (saved) {
-            initialTables = JSON.parse(saved);
-            // Migration: Assign existing tables to 'main' floor if missing floorId
-            const needsMigration = initialTables.some(t => !t.floorId);
-            if (needsMigration) {
-                initialTables = initialTables.map(t => ({
-                    ...t,
-                    floorId: t.floorId || 'main'
-                }));
-            }
-        } else {
-            initialTables = [
-                { id: 1, name: 'Window Seat', capacity: 2, status: 'available', x: 50, y: 50, floorId: 'main' },
-                { id: 2, name: 'Booth 1', capacity: 4, status: 'occupied', x: 200, y: 50, floorId: 'main' },
-                { id: 3, name: 'Family Table', capacity: 6, status: 'available', x: 50, y: 200, floorId: 'main' },
-            ];
-        }
-        return initialTables;
-    });
+    const [tables, setTables] = useState([]);
 
     // Persist Theme
     useEffect(() => {
@@ -46,87 +25,203 @@ export function AppProvider({ children }) {
         document.documentElement.setAttribute('data-theme', theme);
     }, [theme]);
 
-    // Persist Tables
+    // Load initial data from Supabase
     useEffect(() => {
-        localStorage.setItem('tables', JSON.stringify(tables));
-    }, [tables]);
+        loadInitialData();
+    }, []);
 
-    // Persist Floors
+    // Subscribe to real-time changes
     useEffect(() => {
-        localStorage.setItem('floors', JSON.stringify(floors));
-    }, [floors]);
+        // Subscribe to floor changes
+        const unsubscribeFloors = floorService.subscribe((payload) => {
+            console.log('Floor change:', payload);
+
+            if (payload.eventType === 'INSERT') {
+                setFloors(prev => [...prev, payload.new]);
+            } else if (payload.eventType === 'UPDATE') {
+                setFloors(prev => prev.map(f =>
+                    f.id === payload.new.id ? payload.new : f
+                ));
+            } else if (payload.eventType === 'DELETE') {
+                setFloors(prev => prev.filter(f => f.id !== payload.old.id));
+            }
+        });
+
+        // Subscribe to table changes
+        const unsubscribeTables = tableService.subscribe((payload) => {
+            console.log('Table change:', payload);
+
+            if (payload.eventType === 'INSERT') {
+                setTables(prev => [...prev, payload.new]);
+            } else if (payload.eventType === 'UPDATE') {
+                setTables(prev => prev.map(t =>
+                    t.id === payload.new.id ? payload.new : t
+                ));
+            } else if (payload.eventType === 'DELETE') {
+                setTables(prev => prev.filter(t => t.id !== payload.old.id));
+            }
+        });
+
+        return () => {
+            unsubscribeFloors();
+            unsubscribeTables();
+        };
+    }, []);
+
+    const loadInitialData = async () => {
+        try {
+            setIsLoading(true);
+            setError(null);
+
+            // Load floors and tables in parallel
+            const [floorsData, tablesData] = await Promise.all([
+                floorService.getAll(),
+                tableService.getAll()
+            ]);
+
+            setFloors(floorsData);
+            setTables(tablesData);
+        } catch (err) {
+            console.error('Error loading data:', err);
+            setError('Failed to load data from database. Please refresh the page.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const toggleTheme = () => {
         setTheme(prev => prev === 'light' ? 'dark' : 'light');
     };
 
     // Floor Actions
-    const addFloor = (name) => {
-        const newFloor = {
-            id: Date.now().toString(),
-            name
-        };
-        setFloors([...floors, newFloor]);
-        return newFloor.id;
+    const addFloor = async (name) => {
+        try {
+            const newFloor = await floorService.create(name);
+            // Real-time subscription will update the state
+            return newFloor.id;
+        } catch (err) {
+            console.error('Error adding floor:', err);
+            setError('Failed to add floor. Please try again.');
+            throw err;
+        }
     };
 
-    const removeFloor = (id) => {
+    const removeFloor = async (id) => {
         // Prevent removing the last floor
         if (floors.length <= 1) return;
-        setFloors(floors.filter(f => f.id !== id));
-        // Remove tables on this floor
-        setTables(tables.filter(t => t.floorId !== id));
+
+        try {
+            await floorService.delete(id);
+            // Real-time subscription will update the state
+        } catch (err) {
+            console.error('Error removing floor:', err);
+            setError('Failed to remove floor. Please try again.');
+            throw err;
+        }
     };
 
-    const updateFloorName = (id, name) => {
-        setFloors(floors.map(f => f.id === id ? { ...f, name } : f));
+    const updateFloorName = async (id, name) => {
+        try {
+            await floorService.update(id, name);
+            // Real-time subscription will update the state
+        } catch (err) {
+            console.error('Error updating floor:', err);
+            setError('Failed to update floor. Please try again.');
+            throw err;
+        }
     };
 
-    const addTable = (name, capacity, floorId) => {
-        const newTable = {
-            id: Date.now(),
-            name,
-            capacity: parseInt(capacity),
-            status: 'available',
-            x: 100, // Default spawn position
-            y: 100,
-            floorId
-        };
-        setTables([...tables, newTable]);
+    // Table Actions
+    const addTable = async (name, capacity, floorId) => {
+        try {
+            const newTable = {
+                name,
+                capacity: parseInt(capacity),
+                status: 'available',
+                x: 100,
+                y: 100,
+                floor_id: floorId
+            };
+
+            await tableService.create(newTable);
+            // Real-time subscription will update the state
+        } catch (err) {
+            console.error('Error adding table:', err);
+            setError('Failed to add table. Please try again.');
+            throw err;
+        }
     };
 
-    const removeTable = (id) => {
-        setTables(tables.filter(t => t.id !== id));
+    const removeTable = async (id) => {
+        try {
+            await tableService.delete(id);
+            // Real-time subscription will update the state
+        } catch (err) {
+            console.error('Error removing table:', err);
+            setError('Failed to remove table. Please try again.');
+            throw err;
+        }
     };
 
-    const toggleTableStatus = (id) => {
-        setTables(tables.map(t =>
-            t.id === id
-                ? { ...t, status: t.status === 'available' ? 'occupied' : 'available' }
-                : t
-        ));
+    const toggleTableStatus = async (id) => {
+        try {
+            const table = tables.find(t => t.id === id);
+            if (!table) return;
+
+            const newStatus = table.status === 'available' ? 'occupied' : 'available';
+            await tableService.update(id, { status: newStatus });
+            // Real-time subscription will update the state
+        } catch (err) {
+            console.error('Error toggling table status:', err);
+            setError('Failed to update table status. Please try again.');
+            throw err;
+        }
     };
 
-    const updateTableStatus = (id, status) => {
-        setTables(tables.map(t => t.id === id ? { ...t, status } : t));
+    const updateTableStatus = async (id, status) => {
+        try {
+            await tableService.update(id, { status });
+            // Real-time subscription will update the state
+        } catch (err) {
+            console.error('Error updating table status:', err);
+            setError('Failed to update table status. Please try again.');
+            throw err;
+        }
     };
 
-    const updateTablePosition = (id, x, y) => {
-        setTables(tables.map(t =>
-            t.id === id ? { ...t, x, y } : t
-        ));
+    const updateTablePosition = async (id, x, y) => {
+        try {
+            // Optimistic update for smooth drag experience
+            setTables(prev => prev.map(t =>
+                t.id === id ? { ...t, x, y } : t
+            ));
+
+            await tableService.update(id, { x, y });
+            // Real-time subscription will sync with other clients
+        } catch (err) {
+            console.error('Error updating table position:', err);
+            // Reload data to revert optimistic update
+            loadInitialData();
+        }
     };
 
-    const updateTableName = (id, newName) => {
-        setTables(tables.map(t =>
-            t.id === id ? { ...t, name: newName } : t
-        ));
+    const updateTableName = async (id, newName) => {
+        try {
+            await tableService.update(id, { name: newName });
+            // Real-time subscription will update the state
+        } catch (err) {
+            console.error('Error updating table name:', err);
+            setError('Failed to update table name. Please try again.');
+            throw err;
+        }
     };
 
     return (
         <AppContext.Provider value={{
             tables,
             floors,
+            isLoading,
+            error,
             addTable,
             removeTable,
             toggleTableStatus,

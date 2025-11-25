@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './store';
 import TableManager from './components/TableManager';
 import CheckIn from './components/CheckIn';
+import Overview from './components/Overview';
 import { fetchRestaurant } from './services/formitable';
 
 function ThemeToggle() {
@@ -14,7 +15,7 @@ function ThemeToggle() {
 }
 
 function MainLayout() {
-  const [activeTab, setActiveTab] = useState('checkin');
+  const [activeTab, setActiveTab] = useState('overview');
   const [restaurantName, setRestaurantName] = useState('');
 
   useEffect(() => {
@@ -47,6 +48,13 @@ function MainLayout() {
       {/* Desktop Navigation */}
       <nav className="desktop-nav">
         <button
+          className={`btn-primary ${activeTab !== 'overview' ? 'btn-icon' : ''}`}
+          style={{ width: 'auto', background: activeTab === 'overview' ? 'var(--primary)' : 'transparent', color: activeTab === 'overview' ? '#fff' : 'var(--text-main)' }}
+          onClick={() => setActiveTab('overview')}
+        >
+          Overview
+        </button>
+        <button
           className={`btn-primary ${activeTab !== 'checkin' ? 'btn-icon' : ''}`}
           style={{ width: 'auto', background: activeTab === 'checkin' ? 'var(--primary)' : 'transparent', color: activeTab === 'checkin' ? '#fff' : 'var(--text-main)' }}
           onClick={() => setActiveTab('checkin')}
@@ -63,11 +71,18 @@ function MainLayout() {
       </nav>
 
       <main>
-        {activeTab === 'checkin' ? <CheckIn /> : <TableManager />}
+        {activeTab === 'overview' ? <Overview /> : activeTab === 'checkin' ? <CheckIn /> : <TableManager />}
       </main>
 
       {/* Mobile Bottom Navigation */}
       <nav className="bottom-nav">
+        <button
+          className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`}
+          onClick={() => setActiveTab('overview')}
+        >
+          <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" /></svg>
+          <span>Overview</span>
+        </button>
         <button
           className={`nav-item ${activeTab === 'checkin' ? 'active' : ''}`}
           onClick={() => setActiveTab('checkin')}

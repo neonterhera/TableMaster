@@ -3,11 +3,11 @@ import { useApp } from '../store';
 import TableNode from './TableNode';
 
 export default function TableManager() {
-    const { tables, addTable, floors, addFloor, removeFloor, updateFloorName } = useApp();
+    const { tables, addTable, floors, addFloor, removeFloor, updateFloorName, isLoading, error } = useApp();
     const [newName, setNewName] = useState('');
     const [newCapacity, setNewCapacity] = useState('');
     const [isEditMode, setIsEditMode] = useState(false);
-    const [activeFloorId, setActiveFloorId] = useState(floors[0]?.id || 'main');
+    const [activeFloorId, setActiveFloorId] = useState(floors[0]?.id || '00000000-0000-0000-0000-000000000001');
 
     // Ensure activeFloorId is valid (in case a floor was deleted)
     React.useEffect(() => {
@@ -47,7 +47,33 @@ export default function TableManager() {
         }
     };
 
-    const activeTables = tables.filter(t => t.floorId === activeFloorId);
+    const activeTables = tables.filter(t => t.floor_id === activeFloorId);
+
+    if (isLoading) {
+        return (
+            <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80vh' }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
+                    <p>Loading floor plan...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80vh' }}>
+                <div style={{ textAlign: 'center', color: 'var(--danger)' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⚠️</div>
+                    <p>{error}</p>
+                    <button onClick={() => window.location.reload()} className="btn-primary" style={{ marginTop: '1rem' }}>
+                        Reload Page
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
 
     return (
         <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '80vh' }}>
